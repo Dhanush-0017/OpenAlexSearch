@@ -1,0 +1,82 @@
+[
+  {
+    "title": "Classifying Anxiety and Depression through LLMs Virtual Interactions: A Case Study with ChatGPT",
+    "abstract": "Mental health has long been studied, and many AI-based approaches have been proposed for diagnosis and adjunctive therapy. The emergence of Pre-trained Large Language Models (LLMs) has had a profound impact on various fields, but the potential of using ChatGPT for cognitive behavior therapy is largely unexplored. Therefore, there is an urgent need to build and design a virtual interactive framework for assisted diagnosis/treatment. In this paper, we present a virtual interaction framework based on LLMs that allows participants to engage in a dialogue with a virtual character, analyse mental health issues through augmented LLMs, and make suggestions during the dialogue to alleviate the psychological problems they are currently facing. Based on this framework, we develop a use case for the application of ChatGPT in the field of emotional disorders. Specifically, we use data from question-and-answer dialogues in real-life scenarios to populate the current exploration of ChatGPT’s potential for depression and anxiety detection. The case study shows the great potential of ChatGPT in the analysis of depression and anxiety tests. The feasibility of a virtual interaction framework based on LLMs has been preliminarily demonstrated.",
+    "year": 2023,
+    "doi": "https://doi.org/10.1109/bibm58861.2023.10385305",
+    "classification": "neither",
+    "reason": "The paper focuses on building a virtual interaction framework for assisted diagnosis/treatment, using ChatGPT for cognitive behavior therapy, and exploring its potential for depression and anxiety detection, without explicitly discussing efficiency or scaling."
+  },
+  {
+    "title": "Expanding the Category of Classifiers with LLM Supervision",
+    "abstract": "Zero-shot learning has shown significant potential for creating cost-effective and flexible systems to expand classifiers to new categories. However, existing methods still rely on manually created attributes designed by domain experts. Motivated by the widespread success of large language models (LLMs), we introduce an LLM-driven framework for class-incremental learning that removes the need for human intervention, termed Classifier Expansion with Multi-vIew LLM knowledge (CEMIL). In CEMIL, an LLM agent autonomously generates detailed textual multi-view descriptions for unseen classes, offering richer and more flexible class representations than traditional expert-constructed vectorized attributes. These LLM-derived textual descriptions are integrated through a contextual filtering attention mechanism to produce discriminative class embeddings. Subsequently, a weight injection module maps the class embeddings to classifier weights, enabling seamless expansion to new classes. Experimental results show that CEMIL outperforms existing methods using expert-constructed attributes, demonstrating its effectiveness for fully automated classifier expansion without human participation.",
+    "year": 2024,
+    "doi": "https://doi.org/10.24963/ijcai.2024/657",
+    "classification": "efficiency",
+    "reason": "the abstract mentions 'cost-effective' and 'flexible systems' indicating a focus on making models faster, cheaper or more efficient"
+  },
+  {
+    "title": "FELLMVP: An Ensemble LLM Framework for Classifying Smart Contract Vulnerabilities",
+    "abstract": "The rapid expansion of smart contracts on blockchain platforms has significantly advanced the automation of transactions and agreements. However, the growing reliance on smart contracts increases security risks due to their immutable nature and interactions with digital assets. Existing vulnerability detection methods often fail to adapt to new and complex attack vectors and struggle to accurately predict specific vulnerability types. This paper introduces FELLMVP 1, a novel framework that integrates ensemble learning with Large Language Models (LLMs) to classify vulnerabilities in smart contracts. FELLMVP starts with the parsing of Solidity files to construct call graphs and Contract-External Function-Call (CEC) files for contract analysis. It fine-tunes eight LLMs, each targeted at detecting specific types of vulnerabilities and culminates and deploys an ensemble model that leverages the collective predictive capabilities of these LLMs. FELLMVP was evaluated on 15,637 real-world smart contracts spanning eight types of vulnerabilities, demonstrating superior performance over existing methods with an accuracy of 98.8% and F1 scores of 88%. FELLMVP also outperforms other LLMs such as Llama2-7b, CodeLlama, and Falcon-7b by 5 % -12 % on F1 score. Additionally, a case study using ChatGPT-4 to locate vulnerable code in smart contracts reveals that FELLMVP's prediction of specific vulnerability types enhances the debugging process compared to binary outcomes.",
+    "year": 2024,
+    "doi": "https://doi.org/10.1109/blockchain62396.2024.00021",
+    "classification": "efficiency",
+    "reason": "The abstract mentions fine-tuning eight LLMs, leveraging their collective predictive capabilities, and demonstrating improved performance over existing methods, indicating an emphasis on efficiency."
+  },
+  {
+    "title": "Can Large Language Models Transform Computational Social Science?",
+    "abstract": "Abstract Large language models (LLMs) are capable of successfully performing many language processing tasks zero-shot (without training data). If zero-shot LLMs can also reliably classify and explain social phenomena like persuasiveness and political ideology, then LLMs could augment the computational social science (CSS) pipeline in important ways. This work provides a road map for using LLMs as CSS tools. Towards this end, we contribute a set of prompting best practices and an extensive evaluation pipeline to measure the zero-shot performance of 13 language models on 25 representative English CSS benchmarks. On taxonomic labeling tasks (classification), LLMs fail to outperform the best fine-tuned models but still achieve fair levels of agreement with humans. On free-form coding tasks (generation), LLMs produce explanations that often exceed the quality of crowdworkers’ gold references. We conclude that the performance of today’s LLMs can augment the CSS research pipeline in two ways: (1) serving as zero-shot data annotators on human annotation teams, and (2) bootstrapping challenging creative generation tasks (e.g., explaining the underlying attributes of a text). In summary, LLMs are posed to meaningfully participate in social science analysis in partnership with humans.",
+    "year": 2023,
+    "doi": "https://doi.org/10.1162/coli_a_00502",
+    "classification": "both",
+    "reason": "The paper covers both efficiency (using LLMs as zero-shot data annotators or bootstrapping creative generation tasks) and scaling (using LLMs to augment the CSS pipeline with new capabilities)"
+  },
+  {
+    "title": "Classifying Course Discussion Board Questions using LLMs",
+    "abstract": "Large language models (LLMs) can be used to answer student questions on course discussion boards, but there is a risk of LLMs answering questions they are unable to address. We propose and evaluate an LLM-based system that classifies student questions into one of four types: conceptual, homework, logistics, and not answerable. We then prompt an LLM using a type-specific prompt. Using GPT-3, we achieve 81% classification accuracy across the four categories. Furthermore, we achieve 93% accuracy on classifying not answerable questions. This indicates that our system effectively ignores questions that it cannot address.",
+    "year": 2023,
+    "doi": "https://doi.org/10.1145/3587103.3594202",
+    "classification": "efficiency",
+    "reason": "the abstract mentions achieving higher accuracy on classifying not answerable questions, indicating the model can efficiently handle unaddressable questions"
+  },
+  {
+    "title": "Bias and Fairness in Large Language Models: A Survey",
+    "abstract": "Abstract Rapid advancements of large language models (LLMs) have enabled the processing, understanding, and generation of human-like text, with increasing integration into systems that touch our social sphere. Despite this success, these models can learn, perpetuate, and amplify harmful social biases. In this article, we present a comprehensive survey of bias evaluation and mitigation techniques for LLMs. We first consolidate, formalize, and expand notions of social bias and fairness in natural language processing, defining distinct facets of harm and introducing several desiderata to operationalize fairness for LLMs. We then unify the literature by proposing three intuitive taxonomies, two for bias evaluation, namely, metrics and datasets, and one for mitigation. Our first taxonomy of metrics for bias evaluation disambiguates the relationship between metrics and evaluation datasets, and organizes metrics by the different levels at which they operate in a model: embeddings, probabilities, and generated text. Our second taxonomy of datasets for bias evaluation categorizes datasets by their structure as counterfactual inputs or prompts, and identifies the targeted harms and social groups; we also release a consolidation of publicly available datasets for improved access. Our third taxonomy of techniques for bias mitigation classifies methods by their intervention during pre-processing, in-training, intra-processing, and post-processing, with granular subcategories that elucidate research trends. Finally, we identify open problems and challenges for future work. Synthesizing a wide range of recent research, we aim to provide a clear guide of the existing literature that empowers researchers and practitioners to better understand and prevent the propagation of bias in LLMs.",
+    "year": 2024,
+    "doi": "https://doi.org/10.1162/coli_a_00524",
+    "classification": "neither",
+    "reason": "The paper focuses on bias evaluation and mitigation techniques for LLMs, applications, benchmarks, and datasets, rather than efficiency or scaling."
+  },
+  {
+    "title": "The Internal State of an LLM Knows When It’s Lying",
+    "abstract": "While Large Language Models (LLMs) have shown exceptional performance in various tasks, one of their most prominent drawbacks is generating inaccurate or false information with a confident tone. In this paper, we provide evidence that the LLM's internal state can be used to reveal the truthfulness of statements. This includes both statements provided to the LLM, and statements that the LLM itself generates. Our approach is to train a classifier that outputs the probability that a statement is truthful, based on the hidden layer activations of the LLM as it reads or generates the statement. Experiments demonstrate that given a set of test sentences, of which half are true and half false, our trained classifier achieves an average of 71% to 83% accuracy labeling which sentences are true versus false, depending on the LLM base model. Furthermore, we explore the relationship between our classifier's performance and approaches based on the probability assigned to the sentence by the LLM. We show that while LLM-assigned sentence probability is related to sentence truthfulness, this probability is also dependent on sentence length and the frequencies of words in the sentence, resulting in our trained classifier providing a more reliable approach to detecting truthfulness, highlighting its potential to enhance the reliability of LLM-generated content and its practical applicability in real-world scenarios.",
+    "year": 2023,
+    "doi": "https://doi.org/10.18653/v1/2023.findings-emnlp.68",
+    "classification": "both",
+    "reason": "The paper addresses both efficiency (improving truthfulness detection) and scaling (using hidden layer activations of LLMs) in the context of Large Language Models"
+  },
+  {
+    "title": "Leveraging LLMs for Translating and Classifying Mental Health Data",
+    "abstract": "Large language models (LLMs) are increasingly used in medical fields. In mental health support, the early identification of linguistic markers associated with mental health conditions can provide valuable support to mental health professionals, and reduce long waiting times for patients.Despite the benefits of LLMs for mental health support, there is limited research on their application in mental health systems for languages other than English. Our study addresses this gap by focusing on the detection of depression severity in Greek through user-generated posts which are automatically translated from English. Our results show that GPT3.5-turbo is not very successful in identifying the severity of depression in English, and it has a varying performance in Greek as well. Our study underscores the necessity for further research, especially in languages with less resources.Also, careful implementation is necessary to ensure that LLMs are used effectively in mental health platforms, and human supervision remains crucial to avoid misdiagnosis.",
+    "year": 2024,
+    "doi": "https://doi.org/10.18653/v1/2024.mrl-1.20",
+    "classification": "neither",
+    "reason": "The paper focuses on the application of LLMs in mental health support, but does not explicitly discuss efficiency or scaling in terms of model size or computational resources."
+  },
+  {
+    "title": "Title and abstract screening for literature reviews using large language models: an exploratory study in the biomedical domain",
+    "abstract": "LLMs can be used to evaluate the relevance of scientific publications to a certain review topic and classifiers based on such an approach show some promising results. To date, little is known about how well such systems would perform if used prospectively when conducting systematic literature reviews and what further implications this might have. However, it is likely that in the future researchers will increasingly use LLMs for evaluating and classifying scientific publications.",
+    "year": 2024,
+    "doi": "https://doi.org/10.1186/s13643-024-02575-4",
+    "classification": "neither",
+    "reason": "The abstract does not explicitly mention efficiency, scaling, or related keywords, and the focus is on literature reviews and LLMs, which is outside the scope of efficiency or scaling."
+  },
+  {
+    "title": "Expanding the Category of Classifiers with LLM Supervision",
+    "abstract": "Zero-shot learning has shown significant potential for creating cost-effective and flexible systems to expand classifiers to new categories. However, existing methods still rely on manually created attributes designed by domain experts. Motivated by the widespread success of large language models (LLMs), we introduce an LLM-driven framework for class-incremental learning that removes the need for human intervention, termed Classifier Expansion with Multi-vIew LLM knowledge (CEMIL). In CEMIL, an LLM agent autonomously generates detailed textual multi-view descriptions for unseen classes, offering richer and more flexible class representations than traditional expert-constructed vectorized attributes. These LLM-derived textual descriptions are integrated through a contextual filtering attention mechanism to produce discriminative class embeddings. Subsequently, a weight injection module maps the class embeddings to classifier weights, enabling seamless expansion to new classes. Experimental results show that CEMIL outperforms existing methods using expert-constructed attributes, demonstrating its effectiveness for fully automated classifier expansion without human participation.",
+    "year": 2025,
+    "doi": "https://doi.org/10.24963/ijcai.2025/657",
+    "classification": "efficiency",
+    "reason": "The abstract mentions cost-effectiveness and reducing the need for human intervention, suggesting a focus on making models cheaper and more efficient."
+  }
+]
