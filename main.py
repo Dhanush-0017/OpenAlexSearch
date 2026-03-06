@@ -1,95 +1,154 @@
-import requests
-from pyalex import Works
+import csv
+import json
+from collections import Counter
+from search import get_keyword, get_papers, DEFAULT_YEAR_FROM, DEFAULT_MAX_PAPERS
+from classifier import classify_paper
 
-# ─────────────────────────────
-# SETTINGS — change these anytime
-# ─────────────────────────────
-KEYWORD   = "LLM"
-YEAR_FROM = 2024
-MAX_PAPERS = 5          # start small for testing
-
-OLLAMA_URL   = "http://localhost:11434/api/generate"
-OLLAMA_MODEL = "llama3.2:latest"
+# ollama settings - change these if the server changes
+ollama_url   = "http://localhost:11434/api/generate"
+ollama_model = "llama3.2:latest"
 
 
-# ─────────────────────────────
-# STEP 1: Get papers from OpenAlex
-# ─────────────────────────────
-def get_papers():
-    print(f"\n🔍 Searching OpenAlex for: '{KEYWORD}'")
-    
-    results = (
-        Works()
-        .search(KEYWORD)
-        .filter(publication_year=f">{YEAR_FROM - 1}")
-        .filter(type="article")
-        .get()
-    )
-    
-    papers = []
-    for paper in results:
-        if paper["abstract"] is None:
-            continue
-        papers.append({
-            "title"   : paper["title"],
-            "abstract": paper["abstract"],
-            "year"    : paper["publication_year"]
-        })
-        if len(papers) >= MAX_PAPERS:
-            break
-    
-    print(f"✅ Found {len(papers)} papers with abstracts\n")
-    return papers
+def get_settings():
+    # ask user for year and max papers - press Enter to keep defaults
+    print("\nSettings (press Enter to keep default):")
+
+    year_input = input(f"  From year [{DEFAULT_YEAR_FROM}]: ").strip()
+    if year_input.isdigit() and len(year_input) == 4:
+        year_from = int(year_input)
+    else:
+        year_from = DEFAULT_YEAR_FROM
+
+    count_input = input(f"  Max papers [{DEFAULT_MAX_PAPERS}]: ").strip()
+    if count_input.isdigit() and 1 <= int(count_input) <= 200:
+        max_papers = int(count_input)
+    else:
+        max_papers = DEFAULT_MAX_PAPERS
+
+    print(f"  → Searching from {year_from}, up to {max_papers} papers\n")
+    return year_from, max_papers
 
 
-# ─────────────────────────────
-# STEP 2: Classify with Ollama
-# ─────────────────────────────
-def classify(title, abstract):
-    prompt = f"""You are a research paper classifier.
+def save_results(results, keyword):
+    # name the output files after the keyword
+    # so results from different searches don't overwrite each other
+    file_name    = keyword.lower().replace(" ", "_")
+    output_csv   = f"results_{file_name}.csv"
+    output_json  = f"results_{file_name}.json"
 
-Read this paper title and abstract and classify it as ONLY one of:
-- "efficiency"  → improving speed, reducing compute, memory, cost
-- "scaling"     → scaling laws, larger models, more data
-- "both"        → covers efficiency AND scaling
-- "neither"     → something else
+    # save a clean summary to csv for excel
+    try:
+        with open(output_csv, "w", newline="", encoding="utf-8") as f:
+            columns = ["title", "year", "doi", "classification", "reason"]
+            writer = csv.DictWriter(f, fieldnames=columns)
+            writer.writeheader()
+            for row in results:
+                writer.writerow({
+                    "title"         : row["title"],
+                    "year"          : row["year"],
+                    "doi"           : row["doi"],
+                    "classification": row["classification"],
+                    "reason"        : row["reason"]
+                })
+        print(f"\nSummary saved to {output_csv}")
 
-Reply with ONE word only: efficiency, scaling, both, or neither.
+    except PermissionError:
+        # this happens when the csv file is open in excel
+        print(f"Please close {output_csv} in Excel and try again.")
 
-Title: {title}
-Abstract: {abstract}
-"""
-    
-    response = requests.post(
-        OLLAMA_URL,
-        json={
-            "model" : OLLAMA_MODEL,
-            "prompt": prompt,
-            "stream": False
-        }
-    )
-    
-    result = response.json()["response"].strip().lower()
-    return result
+    except Exception as e:
+        print(f"Could not save CSV: {e}")
+
+    # save full data including abstracts to json
+    try:
+        with open(output_json, "w", encoding="utf-8") as f:
+            json.dump(results, f, indent=2, ensure_ascii=False)
+        print(f"Full data saved to {output_json}")
+
+    except Exception as e:
+        print(f"Could not save JSON: {e}")
 
 
-# ─────────────────────────────
-# STEP 3: Run everything
-# ─────────────────────────────
 def main():
-    print("=" * 50)
-    print("  OpenAlex + Ollama Classifier")
-    print("=" * 50)
-    
-    # Get papers
-    papers = get_papers()
-    
-    # Classify each one
-    for i, paper in enumerate(papers, 1):
-        print(f"[{i}/{len(papers)}] {paper['title'][:60]}...")
-        classification = classify(paper["title"], paper["abstract"])
-        print(f"     Result: {classification.upper()}\n")
+    # keep running until user wants to stop
+    while True:
+        print("=" * 50)
+        print("   OpenAlex Paper Search")
+        print("=" * 50)
+
+        # step 1 - ask user for a keyword
+        keyword = get_keyword()
+
+        # step 2 - ask user for settings (year, max papers)
+        year_from, max_papers = get_settings()
+
+        # step 3 - get papers from openalex using user settings
+        papers = get_papers(keyword, max_papers=max_papers, year_from=year_from)
+
+        # stop if no papers were found
+        if not papers:
+            print("No papers found. Please try a different keyword.")
+        else:
+            # step 4 - classify each paper using ollama
+            results = []
+            ollama_is_down = False
+
+            for i, paper in enumerate(papers, 1):
+
+                # print paper details (truncate abstract to keep terminal clean)
+                print(f"\n{'─' * 50}")
+                print(f"[{i}/{len(papers)}] {paper['title']}")
+                print(f"Year : {paper['year']}  |  DOI: {paper['doi']}")
+                print(f"\nAbstract:\n{paper['abstract'][:300]}...")
+
+                # send to ollama and get classification
+                print(f"\nClassifying...")
+                result = classify_paper(
+                    paper["title"],
+                    paper["abstract"],
+                    ollama_url,
+                    ollama_model
+                )
+
+                # if ollama is not running stop the loop
+                if result["classification"] == "error" and "could not connect" in result["reason"]:
+                    print("\nOllama is not running. Please start Ollama and try again.")
+                    ollama_is_down = True
+                    break
+
+                print(f"Result : {result['classification'].upper()}")
+                print(f"Reason : {result['reason']}")
+
+                # add classification and reason to paper
+                paper["classification"] = result["classification"]
+                paper["reason"]         = result["reason"]
+                results.append(paper)
+
+            # step 5 - show summary and save only if we have results
+            if results and not ollama_is_down:
+
+                print(f"\n{'=' * 50}")
+                print("SUMMARY")
+                print(f"{'=' * 50}")
+
+                counts = Counter(r["classification"] for r in results)
+                for label, count in counts.most_common():
+                    print(f"  {label.capitalize():12s}: {count} papers")
+
+                # step 6 - save results named after the keyword
+                save_results(results, keyword)
+
+                print(f"\nDone! Processed {len(results)} papers.")
+
+        # ask if user wants to search again
+        print("\n" + "=" * 50)
+        again = input("Do you want to search again? (yes/no): ").strip().lower()
+
+        if again != "yes":
+            print("\nGoodbye!")
+            break
 
 
+# run the program
 if __name__ == "__main__":
     main()
