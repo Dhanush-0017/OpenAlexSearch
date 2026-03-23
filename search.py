@@ -14,9 +14,9 @@ except ImportError:
     pyalex.config.api_key = "wdxmWbVkwxbgPOfwdwxAgi"
 
 #default settings - used if user does not change them
-DEFAULT_YEAR_FROM  = 2023
+DEFAULT_YEAR_FROM  = 2022
 DEFAULT_LANGUAGE   = "en"
-DEFAULT_MAX_PAPERS = 200
+DEFAULT_MAX_PAPERS = 25
 
 
 def get_keyword():

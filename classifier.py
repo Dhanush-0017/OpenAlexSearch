@@ -33,68 +33,69 @@ def _parse_ollama_response(raw):
 
 
 def classify_paper(title, abstract, ollama_url, ollama_model, journal="N/A", concepts="N/A", keywords="N/A"):
-    system = """You are an expert Computer Science and AI/ML research analyst.
-Classify research papers into exactly one of three categories based on PRIMARY contribution.
+    system = """You are an expert AI/ML research paper classifier.
 
-CRITICAL RULE — AI AS SUBJECT, NOT TOOL:
-The paper must be ABOUT improving AI/ML models themselves.
-If AI/ML is only used as a tool for another domain (biology, chemistry, medicine, physics, finance), classify as "neither".
+Your job is to classify a paper into one of three categories: "efficiency", "scaling", or "neither".
 
-CATEGORIES:
-- "efficiency" -> PRIMARY goal is making AI/ML models faster, smaller, cheaper, or less energy-intensive.
-  Signals: model compression, pruning, quantization, knowledge distillation, sparse models, early exit, efficient inference.
+STEP 1 — Ask yourself: Does this paper propose a new AI/ML method, model, or training technique?
+  - If YES → go to Step 2
+  - If NO (e.g. applies existing AI to biology, chemistry, medicine with no new AI contribution) → "neither"
 
-- "scaling"    -> PRIMARY goal is improving accuracy, capability, or benchmark performance of AI/ML models.
-  Signals: new architectures with SOTA results, larger models, better training strategies, improved objectives.
+STEP 2 — Ask yourself: What is the PRIMARY goal of the new method?
+  - Goal is to make AI models FASTER, SMALLER, or CHEAPER to run → "efficiency"
+    (pruning, quantization, distillation, LoRA, sparse models, efficient attention, early exit, reduced memory)
+  - Goal is to make AI models MORE ACCURATE, MORE CAPABLE, or BETTER at tasks → "scaling"
+    (new architectures, better training strategies, RLHF, instruction tuning, contrastive learning,
+     self-supervised learning, new objectives, multi-modal models, better generalization, SOTA results)
 
-- "neither"    -> Paper is not about AI/ML, uses AI as a tool for another domain, or focuses on
-  interpretability, fairness, alignment, safety, RLHF, datasets, surveys, or security.
+IMPORTANT RULES:
+- "neither" is a last resort. Only use it when the paper's main contribution is clearly outside AI/ML.
+- If a paper improves BOTH speed and accuracy, classify by the PROBLEM IT WAS WRITTEN TO SOLVE.
+- RLHF, instruction tuning, alignment, and fine-tuning strategies → "scaling" (they improve model quality).
+- Interpretability or safety methods that also improve model performance → "scaling".
 
-TIEBREAKER: If paper claims BOTH efficiency AND accuracy gains, classify by what problem it was WRITTEN TO SOLVE.
-BOUNDARY CASE — Mixture of Experts (MoE): if MoE is used to reduce compute -> efficiency. If used to improve capability -> scaling.
+EXAMPLES:
+Title: "LoRA: Low-Rank Adaptation of Large Language Models"
+Reasoning: Proposes a new fine-tuning method that reduces trainable parameters → makes training cheaper
+Classification: efficiency
 
-EXAMPLES (with reasoning):
-- Title: "Pruned BERT runs 3x faster with minimal accuracy loss"
-  Primary contribution: reduces model size and inference time via pruning
-  Classification: efficiency — written to solve a speed/cost problem
+Title: "FlashAttention: Fast and Memory-Efficient Exact Attention"
+Reasoning: Proposes a faster attention algorithm → reduces memory and speeds up training
+Classification: efficiency
 
-- Title: "New transformer architecture achieves state-of-the-art on GLUE benchmark"
-  Primary contribution: new architecture that improves task accuracy
-  Classification: scaling — written to solve an accuracy/capability problem
+Title: "Scaling to 1 trillion parameters shows emergent capabilities"
+Reasoning: Trains a much larger model and studies new capabilities → improves model capability
+Classification: scaling
 
-- Title: "Scaling to 1 trillion parameters shows emergent capabilities"
-  Primary contribution: trains a larger model, discovers new capabilities
-  Classification: scaling — written to push model capability further
+Title: "RLHF fine-tuning makes LLMs follow instructions better"
+Reasoning: Proposes a training strategy to improve instruction-following quality → better model capability
+Classification: scaling
 
-- Title: "Quantized LLM matches full-precision accuracy at 4-bit"
-  Primary contribution: reduces memory and compute via quantization
-  Classification: efficiency — written to make the model cheaper to run
+Title: "Instruction tuning improves zero-shot generalization"
+Reasoning: New training approach to improve generalization across tasks → better model quality
+Classification: scaling
 
-- Title: "LLMs used to predict drug transfection efficiency in biology"
-  Primary contribution: applies LLMs to a biology problem
-  Classification: neither — AI is a tool, the paper is about biology
+Title: "LLMs used to predict drug-protein interactions"
+Reasoning: Uses existing LLMs as a tool for a biology problem, no new AI method proposed
+Classification: neither"""
 
-- Title: "Why large language models hallucinate — detection method proposed"
-  Primary contribution: studies and detects a failure mode of LLMs
-  Classification: neither — focuses on reliability/safety, not efficiency or scaling
-
-- Title: "RLHF fine-tuning makes LLMs follow instructions better"
-  Primary contribution: aligns model behavior with human preferences
-  Classification: neither — alignment/safety, not efficiency or scaling"""
-
-    prompt = f"""First identify the PRIMARY contribution of this paper, then classify it.
+    prompt = f"""Read the paper details below and classify it step by step.
 
 Title    : {title}
 Journal  : {journal}
 Concepts : {concepts}
 Keywords : {keywords}
-Abstract : {abstract[:600]}
+Abstract : {abstract[:800]}
+
+Think through these questions before answering:
+1. What is the main new thing this paper proposes? (a new AI method, or applying AI to another field?)
+2. If it proposes a new AI method — is the goal to make models faster/smaller, or more accurate/capable?
 
 Reply in this exact JSON format only — no extra text, no markdown:
 {{
+  "reason": "one sentence: what the paper proposes and why it fits the chosen category",
   "classification": "efficiency" or "scaling" or "neither",
-  "accuracy": a number from 0 to 100 representing how confident you are,
-  "reason": "one sentence explaining the primary contribution and why it fits the chosen category"
+  "accuracy": a number from 0 to 100 representing how confident you are
 }}"""
 
     payload = {
@@ -103,7 +104,7 @@ Reply in this exact JSON format only — no extra text, no markdown:
         "prompt"     : prompt,
         "stream"     : False,
         "temperature": 0,        #deterministic — same result every run
-        "num_predict": 400,      #cap response length to prevent rambling
+        "num_predict": 300,      #reason + classification + accuracy fits in 300 tokens
     }
 
     try:
