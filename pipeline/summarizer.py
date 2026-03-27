@@ -3,6 +3,8 @@ import json
 import requests
 import os
 
+from pipeline.classifier import CLASSIFICATION_PROMPT, parse_classification
+
 # ── Constants ─────────────────────────────────────────────────────────────────
 OLLAMA_URL   = "http://10.230.100.240:17020/api/generate"
 OLLAMA_MODEL = "gpt-oss:120b"
@@ -33,8 +35,9 @@ def build_combined_text(chunks):
     return combined[:6000]
 
 
-def summarize_and_classify(title, combined_text):
-    prompt = f"""You are analyzing a research paper titled: "{title}"
+def build_prompt(title, combined_text):
+    """Build the combined summarization + classification prompt."""
+    return f"""You are analyzing a research paper titled: "{title}"
 
 Below is the content of the paper:
 
@@ -46,23 +49,7 @@ TASK 1 - SUMMARY:
 Write a concise summary in 200-300 words. Use plain text only, no markdown, no bullet points, no bold or italic formatting.
 Cover: the problem being solved, the methodology used, and the key contributions.
 
-TASK 2 - CLASSIFICATION:
-Classify this paper into one of two categories: [Efficiency] or [Scaling].
-
-Category A: Efficiency
-Focus: Doing more with less. Reducing the computational footprint of a model without necessarily increasing its size.
-Key Indicators: Quantization (int8, FP4), Pruning, Distillation, Low-rank Adaptation (LoRA), Sparse Attention mechanisms, Memory-efficient kernels (FlashAttention), or Reducing FLOPs for the same parameter count.
-Goal: Inference speed, training cost reduction, or hardware constraints.
-
-Category B: Scaling
-Focus: Understanding or implementing the effects of increasing model size, data volume, or compute.
-Key Indicators: Scaling Laws (Chinchilla, Kaplan), Emergent properties, Mixture of Experts (MoE) at scale, High-parameter counts (70B+), or "Data-constrained" scaling.
-Goal: Improving general intelligence, capability benchmarks, or studying behavior at the limit.
-
-Instructions:
-- Determine which category is the "Primary Contribution." If a paper scales an efficient method, classify it by the method being introduced.
-- Provide a Confidence Score (0-100).
-- Provide a detailed Justification of 3-4 sentences focusing on the technical methodology, key techniques used, and why this paper fits the chosen category over the other.
+{CLASSIFICATION_PROMPT}
 
 Reply in this EXACT format (no extra text):
 Summary:
@@ -72,30 +59,11 @@ Category: <Efficiency or Scaling>
 Confidence: <0-100>
 Justification: <3-4 sentences focusing on the technical methodology>"""
 
-    return call_llm(prompt, timeout=300)
 
-
-def parse_response(raw):
-    summary       = ""
-    category      = "Unknown"
-    confidence    = "0"
-    justification = ""
-
-    # Extract summary block (between "Summary:" and "Category:")
-    summary_match = re.search(r'Summary:\s*\n(.*?)(?=\nCategory:)', raw, re.DOTALL)
-    if summary_match:
-        summary = summary_match.group(1).strip()
-
-    for line in raw.splitlines():
-        line = line.strip()
-        if line.startswith("Category:"):
-            category      = line.split(":", 1)[1].strip()
-        elif line.startswith("Confidence:"):
-            confidence    = line.split(":", 1)[1].strip()
-        elif line.startswith("Justification:"):
-            justification = line.split(":", 1)[1].strip()
-
-    return summary, {"category": category, "confidence": confidence, "justification": justification}
+def parse_summary(raw):
+    """Parse the summary section from the LLM response."""
+    match = re.search(r'Summary:\s*\n(.*?)(?=\nCategory:)', raw, re.DOTALL)
+    return match.group(1).strip() if match else ""
 
 
 def save_paper(data):
@@ -107,10 +75,10 @@ def save_paper(data):
 def process_paper(paper_id):
     data          = load_chunks(paper_id)
     combined_text = build_combined_text(data["chunks"])
-    raw           = summarize_and_classify(data["title"], combined_text)
-    summary, classification = parse_response(raw)
+    prompt        = build_prompt(data["title"], combined_text)
+    raw           = call_llm(prompt)
 
-    data["summary"]        = summary
-    data["classification"] = classification
+    data["summary"]        = parse_summary(raw)
+    data["classification"] = parse_classification(raw)
     save_paper(data)
     return data

@@ -23,6 +23,10 @@
         }
     ],
     "section_summaries": [],
-    "summary": "",
-    "classification": {}
+    "summary": "The paper addresses the prohibitive memory and compute costs of fine‑tuning very large language models (LLMs), exemplified by a 65 billion‑parameter LLaMA model that would normally require over 780 GB of GPU memory for 16‑bit training. QLoRA (Quantized Low‑Rank Adaptation) solves this problem by keeping the pretrained model frozen in a 4‑bit quantized representation while back‑propagating gradients only through low‑rank adapter modules (LoRA). The authors introduce three key innovations: (a) NF4, a 4‑bit NormalFloat data type that is information‑theoretically optimal for normally distributed weights, (b) Double Quantization, which compresses the quantization constants themselves to further reduce memory, and (c) Paged Optimizers, which dynamically allocate optimizer state to handle memory spikes during training. Using these techniques, QLoRA can fine‑tune a 65 B model on a single 48 GB GPU in about 24 hours while achieving performance comparable to full 16‑bit fine‑tuning. The resulting model family, named Guanaco, outperforms all publicly released models on the Vicuna benchmark, reaching 99.3 % of ChatGPT’s performance. Extensive experiments across eight instruction datasets, multiple model architectures (LLaMA, T5), and scales up to 65 B parameters demonstrate that high‑quality, small‑scale instruction data combined with QLoRA yields state‑of‑the‑art results. The paper also provides analysis of human versus GPT‑4 evaluation, highlighting limitations of current chatbot benchmarks, and releases code, models, and custom CUDA kernels for 4‑bit training.",
+    "classification": {
+        "category": "Efficiency",
+        "confidence": "96",
+        "justification": "The primary contribution is a set of memory‑saving techniques that enable fine‑tuning of massive LLMs on modest hardware, not an exploration of scaling laws or larger model sizes. QLoRA combines 4‑bit NF4 quantization, double quantization of scale factors, and paged optimizer state to dramatically reduce GPU memory while preserving full‑precision performance. The work focuses on reducing computational footprint and training cost rather than increasing model capacity, aligning it with the Efficiency category."
+    }
 }
