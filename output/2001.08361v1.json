@@ -1,0 +1,32 @@
+{
+    "paper_id": "2001.08361v1",
+    "title": "Scaling Laws for Neural Language Models",
+    "pdf_path": "papers\\2001.08361v1.pdf",
+    "sections_extracted": [
+        "abstract",
+        "introduction",
+        "conclusion"
+    ],
+    "num_chunks": 2,
+    "chunks": [
+        {
+            "chunk_index": 0,
+            "section": "abstract",
+            "text": "We study empirical scaling laws for language model performance on the cross-entropy loss.\nThe loss scales as a power-law with model size, dataset size, and the amount of compute\nused for training, with some trends spanning more than seven orders of magnitude. Other\narchitectural details such as network width or depth have minimal effects within a wide\nrange. Simple equations govern the dependence of overﬁtting on model/dataset size and the\ndependence of training speed on model size. These relationships allow us to determine the\noptimal allocation of a ﬁxed compute budget. Larger models are signiﬁcantly more sample-\nefﬁcient, such that optimally compute-efﬁcient training involves training very large models\non a relatively modest amount of data and stopping signiﬁcantly before convergence.\n∗Equal contribution.\nContributions:\nJared Kaplan and Sam McCandlish led the research.\nTom Henighan contributed the LSTM ex-\nperiments.\nTom Brown, Rewon Child, and Scott Gray, and Alec Radford developed the optimized Transformer\nimplementation. Jeff Wu, Benjamin Chess, and Alec Radford developed the text datasets. Dario Amodei provided\nguidance throughout the project.\narXiv:2001.08361v1  [cs.LG]  23 Jan 2020\n\nContents",
+            "char_count": 1219
+        },
+        {
+            "chunk_index": 1,
+            "section": "introduction",
+            "text": "2\n2",
+            "char_count": 3
+        }
+    ],
+    "section_summaries": [],
+    "summary": "The paper investigates how the performance of neural language models, measured by cross‑entropy loss, varies systematically with three fundamental resources: model size (parameter count), dataset size, and the total compute expended during training. By training a broad suite of Transformer and LSTM models across seven orders of magnitude in each dimension, the authors discover that loss follows a simple power‑law relationship with each resource, with only minor deviations. They further derive analytic expressions that capture the onset of over‑fitting as a function of model‑to‑data ratio and that describe how training speed scales with model size. Using these formulas, they formulate an optimal allocation strategy for a fixed compute budget, showing that the most compute‑efficient regime involves training very large models on relatively modest data and halting training well before full convergence. The results demonstrate that larger models are dramatically more sample‑efficient, implying that traditional practices of training until convergence on massive datasets are suboptimal. The study also finds that architectural tweaks such as varying depth or width have limited impact compared to the primary scaling variables. Overall, the work provides a quantitative framework for predicting model performance, guiding resource planning, and highlighting the benefits of scaling up model size in the context of limited data and compute.",
+    "classification": {
+        "category": "Scaling",
+        "confidence": "98",
+        "justification": "The authors empirically derive power‑law scaling relationships linking loss to model size, data quantity, and compute, and use these to propose optimal compute allocation strategies. Their methodology centers on systematic large‑scale experiments rather than introducing new efficient architectures or compression techniques. The primary contribution is a quantitative understanding of how performance scales with resources, fitting the definition of a scaling study. Consequently, the paper aligns with the Scaling category rather than Efficiency."
+    }
+}

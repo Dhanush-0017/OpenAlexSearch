@@ -1,0 +1,32 @@
+{
+    "paper_id": "flashAttention",
+    "title": "F LASH A TTENTION : Fast and",
+    "pdf_path": "papers\\flashAttention.pdf",
+    "sections_extracted": [
+        "abstract",
+        "introduction",
+        "conclusion"
+    ],
+    "num_chunks": 2,
+    "chunks": [
+        {
+            "chunk_index": 0,
+            "section": "abstract",
+            "text": "Transformers are slow and memory-hungry on long sequences, since the time and\nmemory complexity of self-attention are quadratic in sequence length. Approximate\nattention methods have attempted to address this problem by trading off model qual-\nity to reduce the compute complexity, but often do not achieve wall-clock speedup.\nWe argue that a missing principle is making attention algorithms IO-aware—\naccounting for reads and writes between levels of GPU memory. We propose\nFLASHATTENTION, an IO-aware exact attention algorithm that uses tiling to reduce\nthe number of memory reads/writes between GPU high bandwidth memory (HBM)\nand GPU on-chip SRAM. We analyze the IO complexity of FLASHATTENTION,\nshowing that it requires fewer HBM accesses than standard attention, and is optimal\nfor a range of SRAM sizes. We also extend FLASHATTENTION to block-sparse at-\ntention, yielding an approximate attention algorithm that is faster than any existing\napproximate attention method. FLASHATTENTION trains Transformers faster than\nexisting baselines: 15% end-to-end wall-clock speedup on BERT-large (seq. length\n512) compared to the MLPerf 1.1 training speed record, 3× speedup on GPT-2 (seq.\nlength 1K), and 2.4× speedup on long-range arena (seq. length 1K-4K). FLASHAT-\nTENTION and block-sparse FLASHATTENTION enable longer context in Transform-\ners, yielding higher quality models (0.7 better perplexity on GPT-2 and 6.4 points\nof lift on long-document classiﬁcation) and entirely new capabilities: the ﬁrst Trans-\nformers to achieve better-than-chance performance on the Path-X challenge (seq.\nlength 16K, 61.4% accuracy) and Path-256 (seq. length 64K, 63.1% accuracy).",
+            "char_count": 1666
+        },
+        {
+            "chunk_index": 1,
+            "section": "introduction",
+            "text": "Transformer models [86] have emerged as the most widely used architecture in applications such\nas natural language processing and image classiﬁcation. Transformers have grown larger [5] and\ndeeper [87], but equipping them with longer context remains difﬁcult [83], since the self-attention\nmodule at their heart has time and memory complexity quadratic in sequence length. An important\nquestion is whether making attention faster and more memory-efﬁcient can help Transformer models\naddress their runtime and memory challenges for long sequences.\nMany approximate attention methods have aimed to reduce the compute and memory requirements\nof attention. These methods range from sparse-approximation [53, 77] to low-rank approxima-\ntion [13, 52, 88], and their combinations [3, 9, 96]. Although these methods reduce the compute\nrequirements to linear or near-linear in sequence length, many of them do not display wall-clock\nspeedup against standard attention and have not gained wide adoption. One main reason is that\nthey focus on FLOP reduction (which may not correlate with wall-clock speed) and tend to ignore\noverheads from memory access (IO).\nIn this paper, we argue that a missing principle is making attention algorithms IO-aware [1]—that is,\ncarefully accounting for reads and writes to different levels of fast and slow memory (e.g., between\nfast GPU on-chip SRAM and relatively slow GPU high bandwidth memory, or HBM [47], Figure 1\n36th Conference on Neural Information Processing Systems (NeurIPS 2022).\n\nFlashAttention\nMemory Hierarchy with\nBandwidth & Memory Size\nAttention on GPT-2\nFlashAttention\nPyTorch\nTime (ms)\nMatmul\nMask\nSoftmax\nDropout\nMatmul\nFused\nKernel\nQ: N x d\nV: N X d\nKT: d x N\nQKT: N x N\nsm(QKT)V: N x d\nOuter Loop\nCopy Block to SRAM\nCopy\nOuter Loop\nCopy\nInner Loop\nCompute Block\non SRAM\nOutput to HBM\nInner Loop\nInner Loop\nOuter Loop\nGPU\nSRAM\nGPU\nHBM\nMain Memory\n(CPU DRAM)\nSRAM: 19 TB/s (20 MB)\nHBM: 1.5 TB/s (40 GB)\nDRAM: 12.8 GB/s\n                (>1 TB)",
+            "char_count": 1987
+        }
+    ],
+    "section_summaries": [],
+    "summary": "Transformers suffer from quadratic time and memory costs in self‑attention, limiting their ability to process long sequences. Existing approximate attention methods aim to reduce FLOPs but often fail to deliver real‑world speedups because they ignore the cost of data movement between different GPU memory tiers. The authors introduce FLASHATTENTION, an exact attention algorithm that is IO‑aware: it tiles the attention computation so that intermediate blocks are kept in fast on‑chip SRAM, drastically cutting the number of reads and writes to slower high‑bandwidth memory (HBM). They formally analyse the IO complexity, proving that FLASHATTENTION minimizes HBM accesses for a broad range of SRAM capacities and is optimal under those constraints. The approach is further extended to block‑sparse attention, yielding an approximate algorithm that outperforms all prior sparse or low‑rank methods in wall‑clock time. Empirically, FLASHATTENTION accelerates training of BERT‑large by 15 % over the MLPerf 1.1 record, achieves a 3× speedup for GPT‑2 with 1K tokens, and a 2.4× speedup on the Long‑Range Arena benchmark (1K–4K tokens). The efficiency gains enable models to handle much longer contexts, improving quality (e.g., 0.7 lower perplexity on GPT‑2, 6.4 % lift on long‑document classification) and unlocking new capabilities such as surpassing chance performance on the Path‑X (16K tokens) and Path‑256 (64K tokens) challenges.",
+    "classification": {
+        "category": "Efficiency",
+        "confidence": "95",
+        "justification": "The paper’s core contribution is a novel, IO‑aware algorithm that restructures attention to reduce memory traffic, delivering concrete wall‑clock speedups on training and inference. It introduces tiling and SRAM‑resident computation, and extends the technique to block‑sparse attention, emphasizing reduced data movement rather than scaling model size. Hence its primary impact lies in making attention more efficient, fitting the Efficiency category."
+    }
+}

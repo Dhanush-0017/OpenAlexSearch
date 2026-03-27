@@ -1,124 +1,161 @@
 import os
+import re
 import json
-import requests
-from llama_index.core import SimpleDirectoryReader
-from llama_index.core.node_parser import SentenceSplitter
+import logging
+import warnings
+import fitz  # PyMuPDF
+
+warnings.filterwarnings("ignore")
+for _log in ["httpx", "httpcore", "huggingface_hub", "llama_index", "transformers", "sentence_transformers"]:
+    logging.getLogger(_log).setLevel(logging.ERROR)
+
+OUTPUT_DIR = "output"
 
 
-# ── Constants ─────────────────────────────────────────────────────────────────
-PAPERS_DIR = "papers"   # folder where PDFs are saved
-OUTPUT_DIR = "output"   # folder where JSON results are saved
-
-CHUNK_SIZE    = 1024  # max characters per chunk
-CHUNK_OVERLAP = 200   # shared characters between chunks
-
-
-# ── Step 1: Download PDF ──────────────────────────────────────────────────────
-def download_pdf(paper_id, pdf_url):
-    """
-    Downloads a PDF from a given URL and saves it to the papers/ folder.
-    Returns the local file path of the saved PDF.
-    """
-    os.makedirs(PAPERS_DIR, exist_ok=True)
-
-    pdf_path = os.path.join(PAPERS_DIR, f"{paper_id}.pdf")
-
-    print(f"Downloading paper {paper_id}...")
-    response = requests.get(pdf_url, timeout=30)
-    with open(pdf_path, "wb") as f:
-        f.write(response.content)
-
-    print(f"Saved to {pdf_path}")
-    return pdf_path
+# ── Step 1: Read PDF ──────────────────────────────────────────────────────────
+def read_pdf(pdf_path):
+    doc       = fitz.open(pdf_path)
+    full_text = "\n".join(page.get_text() for page in doc)
+    return full_text, doc
 
 
-# ── Step 2: Parse and Chunk PDF ───────────────────────────────────────────────
-def chunk_pdf(pdf_path):
-    """
-    Reads a PDF file and splits it into chunks (nodes) using LlamaIndex.
-    Returns a list of nodes where each node has text and metadata.
-    """
-    print(f"Parsing and chunking {pdf_path}...")
+# ── Step 2: Extract Title using font size ─────────────────────────────────────
+def extract_title(doc, metadata):
+    # Try PDF metadata first (skip if it looks like an arxiv ID)
+    title = (metadata.get("title") or "").strip()
+    if title and len(title) > 5 and not title.lower().startswith("arxiv"):
+        return title
 
-    # load the PDF — SimpleDirectoryReader reads the file page by page
-    reader    = SimpleDirectoryReader(input_files=[pdf_path])
-    documents = reader.load_data()
+    # Find the text span with the largest font size on page 1,
+    # skipping arxiv stamps, dates, URLs, and other non-title text
+    page      = doc[0]
+    blocks    = page.get_text("dict")["blocks"]
+    best_size = 0
+    best_text = ""
 
-    # chunk the text into nodes using SentenceSplitter
-    # SentenceSplitter is smarter than character splitting —
-    # it tries to keep complete sentences together
-    splitter = SentenceSplitter(
-        chunk_size    = CHUNK_SIZE,
-        chunk_overlap = CHUNK_OVERLAP,
+    skip_patterns = re.compile(
+        r'(arxiv|preprint|\[cs\.|http|©|copyright|submission|proceedings|conference|\d{4}-\d{2}-\d{2})',
+        re.IGNORECASE
     )
 
-    nodes = splitter.get_nodes_from_documents(documents)
-    print(f"Created {len(nodes)} chunks from {len(documents)} pages")
+    # Pass 1: find the largest font size used in a valid title line
+    all_lines = []
+    for block in blocks:
+        if block.get("type") != 0:
+            continue
+        for line in block.get("lines", []):
+            line_text = " ".join(s["text"] for s in line.get("spans", [])).strip()
+            if not line_text or skip_patterns.search(line_text):
+                continue
+            line_max_size = max((s["size"] for s in line.get("spans", [])), default=0)
+            if 8 < len(line_text) < 200:
+                all_lines.append((line_max_size, line_text))
+                if line_max_size > best_size:
+                    best_size = line_max_size
 
-    return nodes
+    # Pass 2: collect ALL lines at the largest font size (titles often span multiple lines)
+    title_lines = [
+        text for size, text in all_lines
+        if size >= best_size - 0.5
+    ]
+    title = " ".join(title_lines) if title_lines else "Unknown Title"
+    return fix_spaced_title(title)
 
 
-# ── Step 3: Save to JSON ──────────────────────────────────────────────────────
-def save_chunks(paper_id, title, source, nodes):
+def fix_spaced_title(title):
+    """Fix PDF small-caps font artifacts that split words with spaces.
+
+    Handles two patterns:
+      'F LASH A TTENTION' → 'FLASH ATTENTION'  (single letter + rest of word)
+      'QL O RA'           → 'QLORA'             (all short tokens before colon)
     """
-    Saves all chunks for a paper into a single JSON file in the output/ folder.
-    Each chunk includes its id, page number, and text.
-    """
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    # Fix single uppercase letter split from the rest: "F LASH" → "FLASH"
+    title = re.sub(r'\b([A-Z])\s+([A-Z]{2,})\b', r'\1\2', title)
 
-    # build the list of chunks from nodes
+    # Fix all-short tokens before colon: "QL O RA: ..." → "QLORA: ..."
+    parts  = title.split(":", 1)
+    prefix = parts[0].strip()
+    words  = prefix.split()
+    if len(words) >= 2 and all(len(w) <= 3 for w in words):
+        parts[0] = "".join(words)
+        return ": ".join(parts)
+
+    return title
+
+
+# ── Step 3: Extract Abstract, Introduction, Conclusion ───────────────────────
+def extract_sections(full_text):
+    sections = {"abstract": "", "introduction": "", "conclusion": ""}
+
+    abstract_match = re.search(
+        r'(?i)\babstract\b[:\s]*\n(.*?)(?=\n\s*(?:1[\.\s]|introduction\b|\Z))',
+        full_text, re.DOTALL
+    )
+    if abstract_match:
+        sections["abstract"] = abstract_match.group(1).strip()
+
+    intro_match = re.search(
+        r'(?i)(?:1[\.\s]+)?introduction\s*\n(.*?)(?=\n\s*(?:\d+[\.\s]+\w|related work|background|methodology|methods)\b)',
+        full_text, re.DOTALL
+    )
+    if intro_match:
+        sections["introduction"] = intro_match.group(1).strip()
+
+    conclusion_match = re.search(
+        r'(?i)(?:\d+[\.\s]+)?conclusions?\s*\n(.*?)(?=\n\s*(?:references|bibliography|acknowledgem)\b|\Z)',
+        full_text, re.DOTALL
+    )
+    if conclusion_match:
+        sections["conclusion"] = conclusion_match.group(1).strip()
+
+    return sections
+
+
+# ── Step 4: Section-based chunking (Abstract, Introduction, Conclusion) ───────
+def chunk_by_section(sections):
     chunks = []
-    for i, node in enumerate(nodes, 1):
-        chunks.append({
-            "chunk_id" : i,
-            "page"     : node.metadata.get("page_label", "?"),
-            "text"     : node.text,
-        })
+    for i, (section_name, text) in enumerate(sections.items()):
+        text = text.strip()
+        if text:
+            chunks.append({
+                "chunk_index": i,
+                "section"    : section_name,
+                "text"       : text,
+                "char_count" : len(text),
+            })
+    return chunks
 
-    # build the full paper result
-    result = {
-        "paper_id"    : paper_id,
-        "title"       : title,
-        "source"      : source,
-        "total_pages" : len(set(c["page"] for c in chunks)),
-        "total_chunks": len(chunks),
-        "chunks"      : chunks,
+
+# ── Step 5: Save to JSON ──────────────────────────────────────────────────────
+def save_chunks(paper_id, title, pdf_path, sections, chunks):
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    data = {
+        "paper_id"          : paper_id,
+        "title"             : title,
+        "pdf_path"          : pdf_path,
+        "sections_extracted": list(sections.keys()),
+        "num_chunks"        : len(chunks),
+        "chunks"            : chunks,
+        "section_summaries" : [],
+        "summary"           : "",
+        "classification"    : {},
     }
-
-    # save to output/paper_id.json
-    output_path = os.path.join(OUTPUT_DIR, f"{paper_id}.json")
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(result, f, indent=4, ensure_ascii=False)
-
-    print(f"Saved {len(chunks)} chunks to {output_path}")
-    return output_path
+    with open(os.path.join(OUTPUT_DIR, f"{paper_id}.json"), "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=4, ensure_ascii=False)
 
 
-# ── Main function — runs the full chunking pipeline ───────────────────────────
-def process_paper(paper_id, title, source, pdf_url):
-    """
-    Full pipeline for one paper:
-    1. Download PDF
-    2. Parse and chunk
-    3. Save to JSON
-    """
-    print(f"\n{'='*60}")
-    print(f"Processing: {title}")
-    print(f"{'='*60}")
+# ── Main ──────────────────────────────────────────────────────────────────────
+def process_pdf(pdf_path, paper_id=None, title=None):
+    if not paper_id:
+        paper_id = os.path.splitext(os.path.basename(pdf_path))[0]
 
-    pdf_path    = download_pdf(paper_id, pdf_url)
-    nodes       = chunk_pdf(pdf_path)
-    output_path = save_chunks(paper_id, title, source, nodes)
+    full_text, doc = read_pdf(pdf_path)
 
-    print(f"Done! Output saved to {output_path}")
-    return output_path
+    if not title:
+        title = extract_title(doc, doc.metadata)
 
+    sections = extract_sections(full_text)
+    chunks   = chunk_by_section(sections)
 
-# ── Run directly to test ──────────────────────────────────────────────────────
-if __name__ == "__main__":
-    process_paper(
-        paper_id = "1706.03762",
-        title    = "Attention Is All You Need",
-        source   = "arxiv",
-        pdf_url  = "https://arxiv.org/pdf/1706.03762",
-    )
+    save_chunks(paper_id, title, pdf_path, sections, chunks)
+    return chunks, title

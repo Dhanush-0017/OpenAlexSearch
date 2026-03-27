@@ -1,0 +1,28 @@
+{
+    "paper_id": "2305.14314v1",
+    "title": "QLORA:  Efficient Finetuning of Quantized LLMs",
+    "pdf_path": "papers\\2305.14314v1.pdf",
+    "sections_extracted": [
+        "abstract",
+        "introduction",
+        "conclusion"
+    ],
+    "num_chunks": 2,
+    "chunks": [
+        {
+            "chunk_index": 0,
+            "section": "abstract",
+            "text": "We present QLORA, an efficient finetuning approach that reduces memory us-\nage enough to finetune a 65B parameter model on a single 48GB GPU while\npreserving full 16-bit finetuning task performance. QLORA backpropagates gradi-\nents through a frozen, 4-bit quantized pretrained language model into Low Rank\nAdapters (LoRA). Our best model family, which we name Guanaco, outperforms\nall previous openly released models on the Vicuna benchmark, reaching 99.3%\nof the performance level of ChatGPT while only requiring 24 hours of finetuning\non a single GPU. QLORA introduces a number of innovations to save memory\nwithout sacrificing performance: (a) 4-bit NormalFloat (NF4), a new data type that\nis information theoretically optimal for normally distributed weights (b) Double\nQuantization to reduce the average memory footprint by quantizing the quantization\nconstants, and (c) Paged Optimizers to manage memory spikes. We use QLORA\nto finetune more than 1,000 models, providing a detailed analysis of instruction\nfollowing and chatbot performance across 8 instruction datasets, multiple model\ntypes (LLaMA, T5), and model scales that would be infeasible to run with regular\nfinetuning (e.g. 33B and 65B parameter models). Our results show that QLoRA\nfinetuning on a small high-quality dataset leads to state-of-the-art results, even\nwhen using smaller models than the previous SoTA. We provide a detailed analysis\nof chatbot performance based on both human and GPT-4 evaluations showing that\nGPT-4 evaluations are a cheap and reasonable alternative to human evaluation. Fur-\nthermore, we find that current chatbot benchmarks are not trustworthy to accurately\nevaluate the performance levels of chatbots. A lemon-picked analysis demonstrates\nwhere Guanaco fails compared to ChatGPT. We release all of our models and code,\nincluding CUDA kernels for 4-bit training.2",
+            "char_count": 1863
+        },
+        {
+            "chunk_index": 1,
+            "section": "introduction",
+            "text": "Finetuning large language models (LLMs) is a highly effective way to improve their performance,\n[40, 62, 43, 61, 59, 37] and to add desirable or remove undesirable behaviors [43, 2, 4]. However,\nfinetuning very large models is prohibitively expensive; regular 16-bit finetuning of a LLaMA 65B\nparameter model [57] requires more than 780 GB of GPU memory. While recent quantization",
+            "char_count": 380
+        }
+    ],
+    "section_summaries": [],
+    "summary": "",
+    "classification": {}
+}

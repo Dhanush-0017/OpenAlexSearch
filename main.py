@@ -1,170 +1,169 @@
-import csv
-import json
 import os
-from collections import Counter
-from search import get_keyword, get_papers, DEFAULT_YEAR_FROM, DEFAULT_MAX_PAPERS
-from classifier import classify_paper
+import sys
+import json
+import glob
+import textwrap
+import openpyxl
+from openpyxl.styles import Font, Alignment
 
+from pipeline.chunker    import process_pdf
+from pipeline.summarizer import process_paper as summarize_paper
+
+PAPERS_DIR  = "papers"
 RESULTS_DIR = "results"
-
-ollama_url   = "http://localhost:11434/api/generate"
-#ollama_url   = "http://10.230.100.240:17020/api/generate"
-
-ollama_model = "llama3.2"
+HEADERS     = ["title", "summary", "classification", "accuracy", "justification"]
 
 
-def get_settings():
-    #ask user for year and max papers - press Enter to keep defaults
-    print("\nSettings (press Enter to keep default):")
-
-    year_input = input(f"  From year [{DEFAULT_YEAR_FROM}]: ").strip()
-    if year_input.isdigit() and len(year_input) == 4:
-        
-        year_from = int(year_input)
-    else:
-        year_from = DEFAULT_YEAR_FROM
-
-    count_input = input(f"  Max papers [{DEFAULT_MAX_PAPERS}]: ").strip()
-    
-    if count_input.isdigit() and 1 <= int(count_input) <= 200:
-        max_papers = int(count_input)
-    else:
-        max_papers = DEFAULT_MAX_PAPERS
-
-    print(f"  -> Searching from {year_from}, up to {max_papers} papers\n")
-    return year_from, max_papers
+def get_pdf_files():
+    pdfs = glob.glob(os.path.join(PAPERS_DIR, "*.pdf"))
+    if not pdfs:
+        print(f"No PDF files found in '{PAPERS_DIR}/' folder.")
+        sys.exit(1)
+    return pdfs
 
 
-def save_results(results):
-    #create results folder if it doesn't exist
+def clear_results():
+    """Delete old results files at the start of each run."""
+    os.makedirs(RESULTS_DIR, exist_ok=True)
+    for f in ["results.xlsx", "results.json"]:
+        path = os.path.join(RESULTS_DIR, f)
+        if os.path.isfile(path):
+            os.remove(path)
+
+
+def justify_text(text, line_width, initial_indent, subsequent_indent):
+    """Full (both-side) justification for terminal output."""
+    wrapped = textwrap.wrap(text, width=line_width - len(subsequent_indent))
+    lines   = []
+    for i, line in enumerate(wrapped):
+        indent = initial_indent if i == 0 else subsequent_indent
+        # Last line: left-align only
+        if i == len(wrapped) - 1:
+            lines.append(indent + line)
+            continue
+        words = line.split()
+        if len(words) == 1:
+            lines.append(indent + line)
+            continue
+        total_fill  = line_width - len(indent) - sum(len(w) for w in words)
+        gaps        = len(words) - 1
+        base, extra = divmod(total_fill, gaps)
+        justified   = ""
+        for j, word in enumerate(words[:-1]):
+            justified += word + " " * (base + (1 if j < extra else 0))
+        justified  += words[-1]
+        lines.append(indent + justified)
+    return "\n".join(lines)
+
+
+def save_results(data):
     os.makedirs(RESULTS_DIR, exist_ok=True)
 
-    output_csv  = os.path.join(RESULTS_DIR, "results.csv")
-    output_json = os.path.join(RESULTS_DIR, "results.json")
+    xlsx_path = os.path.join(RESULTS_DIR, "results.xlsx")
+    json_path = os.path.join(RESULTS_DIR, "results.json")
 
-    #save a clean summary to csv for excel
+    classification = data.get("classification", {})
+
+    summary       = "\n".join(textwrap.wrap(data.get("summary", ""),       width=100))
+    justification = "\n".join(textwrap.wrap(classification.get("justification", ""), width=100))
+
+    row = [
+        data["title"],
+        summary,
+        classification.get("category", ""),
+        classification.get("confidence", "") + "%",
+        justification,
+    ]
+
+    # ── Excel ─────────────────────────────────────────────────────────────────
+    wrap = Alignment(wrap_text=True, vertical="top")
     try:
-        with open(output_csv, "w", newline="", encoding="utf-8") as f:
-            columns = ["title", "authors", "year", "journal", "doi", "cited_by", "classification", "accuracy", "reason", "concepts", "keywords", "bibtex"]
-            writer = csv.DictWriter(f, fieldnames=columns)
-            writer.writeheader()
-            for row in results:
-                writer.writerow({
-                    "title"         : row["title"],
-                    "authors"       : row.get("authors", "N/A"),
-                    "year"          : row["year"],
-                    "journal"       : row.get("journal", "N/A"),
-                    "doi"           : row["doi"],
-                    "cited_by"      : row.get("cited_by", 0),
-                    "classification": row["classification"],
-                    "accuracy"      : str(row.get("accuracy", 0)) + "%",
-                    "reason"        : row["reason"],
-                    "concepts"      : row.get("concepts", "N/A"),
-                    "keywords"      : row.get("keywords", "N/A"),
-                    "bibtex"        : row.get("bibtex", ""),
-                })
-        print(f"\nSummary saved to {output_csv}")
-
+        if os.path.isfile(xlsx_path):
+            wb = openpyxl.load_workbook(xlsx_path)
+            ws = wb.active
+        else:
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.append(HEADERS)
+            bold = Font(bold=True)
+            for cell in ws[1]:
+                cell.font      = bold
+                cell.alignment = Alignment(vertical="center")
+        ws.append(row)
+        # Apply wrap text to summary (col 2) and justification (col 5)
+        last_row = ws.max_row
+        ws.cell(last_row, 2).alignment = wrap
+        ws.cell(last_row, 5).alignment = wrap
+        wb.save(xlsx_path)
     except PermissionError:
-        #this happens when the csv file is open in excel
-        print(f"Please close {output_csv} in Excel and try again.")
+        print(f"  Could not write Excel — close {xlsx_path} and try again.")
 
-    except Exception as e:
-        print(f"Could not save CSV: {e}")
+    # ── JSON ──────────────────────────────────────────────────────────────────
+    existing = []
+    if os.path.isfile(json_path):
+        try:
+            with open(json_path, "r", encoding="utf-8") as f:
+                existing = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            existing = []
 
-    #save full data including abstracts to json
-    try:
-        with open(output_json, "w", encoding="utf-8") as f:
-            json.dump(results, f, indent=2, ensure_ascii=False)
-        print(f"Full data saved to {output_json}")
+    existing.append({
+        "title"         : data["title"],
+        "num_chunks"    : data["num_chunks"],
+        "final_summary" : data.get("summary", ""),
+        "classification": classification,
+    })
 
-    except Exception as e:
-        print(f"Could not save JSON: {e}")
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(existing, f, indent=2, ensure_ascii=False)
+
+
+def process(pdf_path):
+    paper_id = os.path.splitext(os.path.basename(pdf_path))[0]
+
+    print(f"\n{'='*80}")
+    print(f"  {os.path.basename(pdf_path)}")
+    print(f"{'='*80}")
+
+    print("  Chunking...", end="", flush=True)
+    chunks, title = process_pdf(pdf_path, paper_id=paper_id)
+    print(f" {len(chunks)} chunks extracted")
+
+    print("  Summarizing & Classifying...", end="", flush=True)
+    data = summarize_paper(paper_id)
+    print(" done")
+
+    classification = data.get("classification", {})
+    save_results(data)
+
+    justification = justify_text(
+        classification['justification'],
+        line_width        = 80,
+        initial_indent    = "  Justification           : ",
+        subsequent_indent = "                            ",
+    )
+    print(f"\n  Title                   : {title}")
+    print(f"  Category                : {classification['category']}")
+    print(f"  Classification Accuracy : {classification['confidence']}%")
+    print(justification)
 
 
 def main():
-    #keep running until user wants to stop
-    while True:
-        print("=" * 50)
-        print("   OpenAlex Paper Search")
-        print("=" * 50)
+    print("=" * 50)
+    print("  Research Paper Analysis   ")
+    print("=" * 50)
 
-        #step 1 - ask user for a keyword
-        keyword = get_keyword()
+    pdfs = get_pdf_files()
+    clear_results()
+    print(f"\n  Found {len(pdfs)} Research Paper(s) in '{PAPERS_DIR}/'")
 
-        #step 2 - ask user for settings (year, max papers)
-        year_from, max_papers = get_settings()
+    for pdf_path in pdfs:
+        process(pdf_path)
 
-        #step 3 - get papers from openalex using user settings
-        papers = get_papers(keyword, max_papers=max_papers, year_from=year_from)
-
-        #stop if no papers were found
-        if not papers:
-            print("No papers found. Please try a different keyword.")
-        else:
-            #step 4 - classify each paper using ollama
-            results = []
-            ollama_is_down = False
-
-            for i, paper in enumerate(papers, 1):
-
-                #print paper details (truncate abstract to keep terminal clean)
-                print(f"\n{'-' * 50}")
-                print(f"[{i}/{len(papers)}] {paper['title']}")
-                print(f"Year : {paper['year']}  |  DOI: {paper['doi']}")
-                print(f"\nAbstract:\n{paper['abstract'][:300]}...")
-
-                #send to ollama and get classification
-                print(f"\nClassifying...")
-                result = classify_paper(
-                    paper["title"],
-                    paper["abstract"],
-                    ollama_url,
-                    ollama_model,
-                    journal  = paper.get("journal", "N/A"),
-                    concepts = paper.get("concepts", "N/A"),
-                    keywords = paper.get("keywords", "N/A"),
-                )
-
-                #if ollama is not running stop the loop
-                if result["classification"] == "error" and "could not connect" in result["reason"]:
-                    print("\nOllama is not running. Please start Ollama and try again.")
-                    ollama_is_down = True
-                    break
-
-                print(f"Result : {result['classification'].upper()}  [accuracy: {result.get('accuracy', 0)}%]")
-                print(f"Reason : {result['reason']}")
-
-                #add classification and reason to paper
-                paper["classification"] = result["classification"]
-                paper["accuracy"]       = result.get("accuracy", 0)
-                paper["reason"]         = result["reason"]
-                results.append(paper)
-
-            #step 5 - show summary and save only if we have results
-            if results and not ollama_is_down:
-
-                print(f"\n{'=' * 50}")
-                print("SUMMARY")
-                print(f"{'=' * 50}")
-
-                counts = Counter(r["classification"] for r in results)
-                for label, count in counts.most_common():
-                    print(f"  {label.capitalize():12s}: {count} papers")
-
-                #step 6 - save results named after the keyword
-                save_results(results)
-
-                print(f"\nDone! Processed {len(results)} papers.")
-
-        #ask if user wants to search again
-        print("\n" + "=" * 50)
-        again = input("Do you want to search again? (yes/no): ").strip().lower()
-
-        if again != "yes":
-            print("\nGoodbye!")
-            break
-
+    print(f"\n{'='*80}")
+    print("  All papers processed.")
+    print(f"  Saved → results/results.xlsx & results/results.json")
+    print(f"{'='*80}")
 
 
 if __name__ == "__main__":
