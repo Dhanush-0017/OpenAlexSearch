@@ -1,12 +1,13 @@
 {
     "paper_id": "1706.03762",
     "title": "Attention Is All You Need",
-    "pdf_path": "papers\\1706.03762.pdf",
+    "pdf_path": "papers/pdf\\1706.03762.pdf",
     "sections_extracted": [
         "abstract",
         "introduction",
         "conclusion"
     ],
+    "sections_missing": [],
     "num_chunks": 3,
     "chunks": [
         {
@@ -18,8 +19,8 @@
         {
             "chunk_index": 1,
             "section": "introduction",
-            "text": "Recurrent neural networks, long short-term memory [13] and gated recurrent [7] neural networks\nin particular, have been firmly established as state of the art approaches in sequence modeling and\ntransduction problems such as language modeling and machine translation [35, 2, 5]. Numerous\nefforts have since continued to push the boundaries of recurrent language models and encoder-decoder\narchitectures [38, 24, 15].\nRecurrent models typically factor computation along the symbol positions of the input and output\nsequences. Aligning the positions to steps in computation time, they generate a sequence of hidden\nstates ht, as a function of the previous hidden state ht−1 and the input for position t. This inherently\nsequential nature precludes parallelization within training examples, which becomes critical at longer\nsequence lengths, as memory constraints limit batching across examples. Recent work has achieved\nsignificant improvements in computational efficiency through factorization tricks [21] and conditional\ncomputation [32], while also improving model performance in case of the latter. The fundamental\nconstraint of sequential computation, however, remains.\nAttention mechanisms have become an integral part of compelling sequence modeling and transduc-\ntion models in various tasks, allowing modeling of dependencies without regard to their distance in\nthe input or output sequences [2, 19]. In all but a few cases [27], however, such attention mechanisms\nare used in conjunction with a recurrent network.\nIn this work we propose the Transformer, a model architecture eschewing recurrence and instead\nrelying entirely on an attention mechanism to draw global dependencies between input and output.\nThe Transformer allows for significantly more parallelization and can reach a new state of the art in\ntranslation quality after being trained for as little as twelve hours on eight P100 GPUs.\n2",
-            "char_count": 1907
+            "text": "Recurrent neural networks, long short-term memory [13] and gated recurrent [7] neural networks\nin particular, have been firmly established as state of the art approaches in sequence modeling and\ntransduction problems such as language modeling and machine translation [35, 2, 5]. Numerous\nefforts have since continued to push the boundaries of recurrent language models and encoder-decoder\narchitectures [38, 24, 15].\nRecurrent models typically factor computation along the symbol positions of the input and output\nsequences. Aligning the positions to steps in computation time, they generate a sequence of hidden\nstates ht, as a function of the previous hidden state ht−1 and the input for position t. This inherently\nsequential nature precludes parallelization within training examples, which becomes critical at longer\nsequence lengths, as memory constraints limit batching across examples. Recent work has achieved\nsignificant improvements in computational efficiency through factorization tricks [21] and conditional\ncomputation [32], while also improving model performance in case of the latter. The fundamental\nconstraint of sequential computation, however, remains.\nAttention mechanisms have become an integral part of compelling sequence modeling and transduc-\ntion models in various tasks, allowing modeling of dependencies without regard to their distance in\nthe input or output sequences [2, 19]. In all but a few cases [27], however, such attention mechanisms\nare used in conjunction with a recurrent network.\nIn this work we propose the Transformer, a model architecture eschewing recurrence and instead\nrelying entirely on an attention mechanism to draw global dependencies between input and output.\nThe Transformer allows for significantly more parallelization and can reach a new state of the art in\ntranslation quality after being trained for as little as twelve hours on eight P100 GPUs.",
+            "char_count": 1905
         },
         {
             "chunk_index": 2,
@@ -28,11 +29,17 @@
             "char_count": 1216
         }
     ],
-    "section_summaries": [],
-    "summary": "The paper addresses the limitations of dominant sequence‑to‑sequence models that rely on recurrent or convolutional networks, which process tokens sequentially and thus hinder parallel computation and increase training time. To overcome this, the authors propose the Transformer architecture, which eliminates recurrence and convolutions entirely and builds both encoder and decoder solely from stacked multi‑head self‑attention layers and position‑wise feed‑forward networks, supplemented by learned positional encodings. By computing attention across all positions simultaneously, the model enables far greater parallelism, reduces the number of sequential operations, and consequently shortens training time while maintaining or improving translation quality. Experiments on the WMT 2014 English‑German and English‑French benchmarks demonstrate that the Transformer achieves new state‑of‑the‑art BLEU scores (28.4 and 41.8 respectively) with significantly less training cost—training on eight GPUs for only a few days compared to weeks for prior models. The paper also shows that the architecture generalizes to other tasks, such as English constituency parsing, both with abundant and limited data. Key contributions include the introduction of scaled dot‑product attention, multi‑head attention, and a parameter‑free positional encoding scheme, all of which together enable efficient, high‑performance sequence transduction without recurrence.",
     "classification": {
-        "category": "Efficiency",
-        "confidence": "95",
-        "justification": "The primary contribution is an architectural redesign that replaces recurrent computation with fully parallelizable attention mechanisms, drastically reducing training time and computational bottlenecks. The paper focuses on achieving faster training and inference while preserving or improving accuracy, rather than scaling model size or data volume. Techniques such as multi‑head self‑attention and positional encodings target efficiency gains, fitting the Efficiency category."
+        "reasoning": "The paper introduces the Transformer, a novel neural network architecture that replaces recurrence and convolutions with self‑attention mechanisms. Its main contribution is the design of this new model structure.",
+        "category": "Model Architecture",
+        "confidence": "99",
+        "justification": "The core of the work is the definition and analysis of a new architecture (the Transformer) and its components (scaled dot‑product attention, multi‑head attention, positional encodings). It does not primarily focus on training methods, evaluation, multimodality, or applications, and while it enables later efficiency gains, the primary novelty lies in the architecture itself. This falls squarely under the Model Architecture category.",
+        "primary_interest": false,
+        "needs_review": false,
+        "raw_response": "Reasoning: The paper introduces the Transformer, a novel neural network architecture that replaces recurrence and convolutions with self‑attention mechanisms. Its main contribution is the design of this new model structure.  \nCategory: Model Architecture  \nConfidence: 99  \nJustification: The core of the work is the definition and analysis of a new architecture (the Transformer) and its components (scaled dot‑product attention, multi‑head attention, positional encodings). It does not primarily focus on training methods, evaluation, multimodality, or applications, and while it enables later efficiency gains, the primary novelty lies in the architecture itself. This falls squarely under the Model Architecture category.",
+        "stage1": {
+            "primary": "C",
+            "reasoning": "The paper introduces the Transformer, a novel attention‑only architecture that replaces recurrence, focusing on a new model design rather than directly improving inference efficiency or scaling capability."
+        }
     }
 }

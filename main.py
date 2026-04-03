@@ -1,104 +1,92 @@
 import os
 import sys
+import csv
 import json
 import glob
 import textwrap
-import openpyxl
-from openpyxl.styles import Font, Alignment
 
 from pipeline.chunker    import process_pdf
 from pipeline.summarizer import process_paper as summarize_paper
 
-PAPERS_DIR  = "papers"
-RESULTS_DIR = "results"
-HEADERS     = ["title", "summary", "classification", "accuracy", "justification"]
+PAPERS_DIR     = "papers/pdf"
+OUTPUT_DIR     = "output"
+CLEAN_TEXT_DIR = "papers/clean_text"
+RESULTS_DIR    = "results"
+HEADERS        = ["paper_id", "title", "classification", "accuracy", "justification"]
+
+# ── Colours ───────────────────────────────────────────────────────────────────
+RESET  = "\033[0m"
+BOLD   = "\033[1m"
+DIM    = "\033[2m"
+CYAN   = "\033[96m"
+GREEN  = "\033[92m"
+YELLOW = "\033[93m"
+RED    = "\033[91m"
+GRAY   = "\033[90m"
+WHITE  = "\033[97m"
 
 
+def c(text, *codes):
+    return "".join(codes) + str(text) + RESET
+
+
+def conf_bar(confidence):
+    try:
+        val = int(confidence)
+    except (ValueError, TypeError):
+        val = 0
+    filled = round(val / 100 * 16)
+    colour = GREEN if val >= 80 else YELLOW if val >= 50 else RED
+    return c("█" * filled + "░" * (16 - filled), colour) + c(f"  {val}%", BOLD)
+
+
+# ── File helpers ──────────────────────────────────────────────────────────────
 def get_pdf_files():
     pdfs = glob.glob(os.path.join(PAPERS_DIR, "*.pdf"))
     if not pdfs:
-        print(f"No PDF files found in '{PAPERS_DIR}/' folder.")
+        print(c(f"\n  no PDFs found in '{PAPERS_DIR}/'", RED))
         sys.exit(1)
     return pdfs
 
 
-def clear_results():
-    """Delete old results files at the start of each run."""
+def clear_all():
+    """Wipe all generated files so every run starts completely fresh."""
+    for f in glob.glob(os.path.join(OUTPUT_DIR, "*.json")):
+        os.remove(f)
+    for f in glob.glob(os.path.join(CLEAN_TEXT_DIR, "*.txt")):
+        os.remove(f)
     os.makedirs(RESULTS_DIR, exist_ok=True)
-    for f in ["results.xlsx", "results.json"]:
+    for f in ["results.csv", "results.json"]:
         path = os.path.join(RESULTS_DIR, f)
         if os.path.isfile(path):
             os.remove(path)
 
 
-def justify_text(text, line_width, initial_indent, subsequent_indent):
-    """Full (both-side) justification for terminal output."""
-    wrapped = textwrap.wrap(text, width=line_width - len(subsequent_indent))
-    lines   = []
-    for i, line in enumerate(wrapped):
-        indent = initial_indent if i == 0 else subsequent_indent
-        # Last line: left-align only
-        if i == len(wrapped) - 1:
-            lines.append(indent + line)
-            continue
-        words = line.split()
-        if len(words) == 1:
-            lines.append(indent + line)
-            continue
-        total_fill  = line_width - len(indent) - sum(len(w) for w in words)
-        gaps        = len(words) - 1
-        base, extra = divmod(total_fill, gaps)
-        justified   = ""
-        for j, word in enumerate(words[:-1]):
-            justified += word + " " * (base + (1 if j < extra else 0))
-        justified  += words[-1]
-        lines.append(indent + justified)
-    return "\n".join(lines)
-
-
 def save_results(data):
     os.makedirs(RESULTS_DIR, exist_ok=True)
 
-    xlsx_path = os.path.join(RESULTS_DIR, "results.xlsx")
+    csv_path  = os.path.join(RESULTS_DIR, "results.csv")
     json_path = os.path.join(RESULTS_DIR, "results.json")
 
     classification = data.get("classification", {})
+    row = {
+        "paper_id"      : data.get("paper_id", ""),
+        "title"         : data["title"],
+        "classification": classification.get("category", ""),
+        "accuracy"      : classification.get("confidence", "") + "%",
+        "justification" : classification.get("justification", ""),
+    }
 
-    summary       = "\n".join(textwrap.wrap(data.get("summary", ""),       width=100))
-    justification = "\n".join(textwrap.wrap(classification.get("justification", ""), width=100))
-
-    row = [
-        data["title"],
-        summary,
-        classification.get("category", ""),
-        classification.get("confidence", "") + "%",
-        justification,
-    ]
-
-    # ── Excel ─────────────────────────────────────────────────────────────────
-    wrap = Alignment(wrap_text=True, vertical="top")
+    file_exists = os.path.isfile(csv_path)
     try:
-        if os.path.isfile(xlsx_path):
-            wb = openpyxl.load_workbook(xlsx_path)
-            ws = wb.active
-        else:
-            wb = openpyxl.Workbook()
-            ws = wb.active
-            ws.append(HEADERS)
-            bold = Font(bold=True)
-            for cell in ws[1]:
-                cell.font      = bold
-                cell.alignment = Alignment(vertical="center")
-        ws.append(row)
-        # Apply wrap text to summary (col 2) and justification (col 5)
-        last_row = ws.max_row
-        ws.cell(last_row, 2).alignment = wrap
-        ws.cell(last_row, 5).alignment = wrap
-        wb.save(xlsx_path)
+        with open(csv_path, "a", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=HEADERS)
+            if not file_exists:
+                writer.writeheader()
+            writer.writerow(row)
     except PermissionError:
-        print(f"  Could not write Excel — close {xlsx_path} and try again.")
+        print(c(f"  cannot write CSV — close the file first", RED))
 
-    # ── JSON ──────────────────────────────────────────────────────────────────
     existing = []
     if os.path.isfile(json_path):
         try:
@@ -110,60 +98,89 @@ def save_results(data):
     existing.append({
         "title"         : data["title"],
         "num_chunks"    : data["num_chunks"],
-        "final_summary" : data.get("summary", ""),
         "classification": classification,
     })
-
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(existing, f, indent=2, ensure_ascii=False)
 
 
-def process(pdf_path):
+# ── Per-paper ─────────────────────────────────────────────────────────────────
+def process(pdf_path, index, total):
     paper_id = os.path.splitext(os.path.basename(pdf_path))[0]
 
-    print(f"\n{'='*80}")
-    print(f"  {os.path.basename(pdf_path)}")
-    print(f"{'='*80}")
+    print()
+    print(f"  {c(f'[{index}/{total}]', GRAY)}  {c(os.path.basename(pdf_path), BOLD, WHITE)}")
+    print(c("  " + "─" * 54, GRAY))
 
-    print("  Chunking...", end="", flush=True)
+    print(f"  {'chunking':<14}", end="", flush=True)
     chunks, title = process_pdf(pdf_path, paper_id=paper_id)
-    print(f" {len(chunks)} chunks extracted")
+    print(c(f"  {len(chunks)} chunk(s)", DIM))
 
-    print("  Summarizing & Classifying...", end="", flush=True)
-    data = summarize_paper(paper_id)
-    print(" done")
+    print(f"  {'classifying':<14}", end="", flush=True)
+    data, skipped = summarize_paper(paper_id)
+    print(c("  cached", GRAY) if skipped else c("  done", GREEN))
 
-    classification = data.get("classification", {})
+    clf        = data.get("classification", {})
+    category   = clf.get("category", "N/A")
+    confidence = clf.get("confidence", "0")
+    why        = clf.get("justification", "")
+    try:
+        flagged = int(clf.get("confidence", "0")) < 75
+    except (ValueError, TypeError):
+        flagged = False
+
+    print()
+    print(f"  {'title':<14}  {c(title, WHITE)}")
+    print(f"  {'category':<14}  {c(category, CYAN, BOLD)}")
+    flag_str = c("  ⚑ NEEDS REVIEW", YELLOW) if flagged else ""
+    print(f"  {'confidence':<14}  {conf_bar(confidence)}{flag_str}")
+
+    if why:
+        lines = textwrap.wrap(why, width=54)
+        print(f"  {'why':<14}  {c(lines[0], DIM)}")
+        for line in lines[1:]:
+            print(f"  {'':<14}  {c(line, DIM)}")
+
     save_results(data)
-
-    justification = justify_text(
-        classification['justification'],
-        line_width        = 80,
-        initial_indent    = "  Justification           : ",
-        subsequent_indent = "                            ",
-    )
-    print(f"\n  Title                   : {title}")
-    print(f"  Category                : {classification['category']}")
-    print(f"  Classification Accuracy : {classification['confidence']}%")
-    print(justification)
+    return skipped, flagged, category == "ERROR"
 
 
+# ── Main ──────────────────────────────────────────────────────────────────────
 def main():
-    print("=" * 50)
-    print("  Research Paper Analysis   ")
-    print("=" * 50)
+    if sys.platform == "win32":
+        os.system("")
 
-    pdfs = get_pdf_files()
-    clear_results()
-    print(f"\n  Found {len(pdfs)} Research Paper(s) in '{PAPERS_DIR}/'")
+    print()
+    print(f"  {c('research paper analysis', BOLD, WHITE)}")
+    print(c("  " + "─" * 54, GRAY))
 
-    for pdf_path in pdfs:
-        process(pdf_path)
+    pdfs  = get_pdf_files()
+    total = len(pdfs)
+    clear_all()
 
-    print(f"\n{'='*80}")
-    print("  All papers processed.")
-    print(f"  Saved → results/results.xlsx & results/results.json")
-    print(f"{'='*80}")
+    print(f"  {c(str(total), CYAN, BOLD)} paper(s)  ·  {c(PAPERS_DIR + '/', GRAY)}")
+
+    n_done = n_errors = n_review = 0
+
+    for i, pdf_path in enumerate(pdfs, start=1):
+        _, flagged, errored = process(pdf_path, i, total)
+        if errored:
+            n_errors += 1
+        else:
+            n_done += 1
+        if flagged:
+            n_review += 1
+
+    print()
+    print(c("  " + "─" * 54, GRAY))
+    parts = [
+        f"{c(str(n_done),   GREEN,  BOLD)} classified",
+        f"{c(str(n_errors), RED,    BOLD)} errors",
+        f"{c(str(n_review), YELLOW, BOLD)} needs review",
+    ]
+    print("  " + "  ·  ".join(parts))
+    print(f"  {c('saved', DIM)}  →  results/results.csv  &  results.json")
+    print()
 
 
 if __name__ == "__main__":

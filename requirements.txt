@@ -1,0 +1,4 @@
+PyMuPDF>=1.23.0
+requests>=2.31.0
+pyalex>=0.13
+python-dotenv>=1.0.0
